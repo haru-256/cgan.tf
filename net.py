@@ -19,7 +19,7 @@ class Generator(object):
         Filewriterを作る場所を示すpath
     """
 
-    def __init__(self, n_hidden=100, bottom_width=4, ch=128, wsale=0.02, is_training, path):
+    def __init__(self, n_hidden=100, bottom_width=4, ch=128, wscale=0.02, is_training=None, path=None):
         # register parameters
         self.n_hidden = n_hidden
         self.bottom_width = bottom_width
@@ -27,7 +27,7 @@ class Generator(object):
         self.wscale = wscale
         self.path = path
         self.is_training = is_training
-        
+
         with tf.Graph().as_default():
             tf.set_random_seed(20170311)  # 乱数を固定
             with tf.variable_scope("generator"):
@@ -72,7 +72,7 @@ class Generator(object):
         # define initializer
         # mean=0.0, stddev=1.0
         init = tf.initializers.truncated_normal(seed=20170311,
-                                                     stddev=self.wscale)
+                                                stddev=self.wscale)
 
         # FC-1
         outputs = tf.layers.dense(inputs=inputs,
@@ -136,9 +136,9 @@ class Generator(object):
                                                 kernel_size=4,
                                                 strides=2,
                                                 padding="same",
-                                                activation=tf.nn.tanh
+                                                activation=tf.nn.tanh,
                                                 kernel_initializer=init,
                                                 bias_initializer=init,
                                                 name="deconv5")
-        
+
         return fake_image
