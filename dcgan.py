@@ -15,7 +15,6 @@ class DCGAN(object):
                  bottom_width=4,
                  ch=128,
                  wscale=0.02,
-                 is_training=None,
                  path=None):
 
         with tf.Graph().as_default():
