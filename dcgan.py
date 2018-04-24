@@ -12,7 +12,7 @@ class DCGAN(object):
 
     def __init__(self,
                  n_hidden=100,
-                 bottom_width=4,
+                 bottom_width=7,
                  ch=128,
                  wscale=0.02,
                  path=None):
@@ -44,12 +44,14 @@ class DCGAN(object):
             self.loss_d, self.loss_g = self.losses(d_real, d_fake)
             # make train_op
             self.train_op = self.make_train_op(self.loss_d, self.loss_g)
+            # self.d_optim, self.g_optim = self.make_train_op(self.loss_d, self.loss_g)
 
             # tensorboard
             # self.run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
             # self.run_metadata = tf.RunMetadata()
             tf.summary.scalar("loss_d", self.loss_d)
             tf.summary.scalar("loss_g", self.loss_g)
+            tf.summary.image('image', self.fake_image, 10)
             self.summary = tf.summary.merge_all()
 
             # initialize
@@ -96,7 +98,7 @@ class DCGAN(object):
             # FC-1
             outputs = tf.layers.dense(
                 inputs=inputs,
-                units=1024,
+                units=bottom_width * bottom_width * ch,
                 kernel_initializer=init,
                 bias_initializer=init,
                 name="dense1")
@@ -136,21 +138,6 @@ class DCGAN(object):
             outputs = tf.layers.batch_normalization(
                 inputs=outputs, training=is_training)
             # Activation-3
-            outputs = tf.nn.relu(outputs)
-            # Deconv-4
-            outputs = tf.layers.conv2d_transpose(
-                inputs=outputs,
-                filters=ch // 4,
-                kernel_size=4,
-                strides=2,
-                padding="same",
-                kernel_initializer=init,
-                bias_initializer=init,
-                name="deconv4")
-            # BN-4
-            outputs = tf.layers.batch_normalization(
-                inputs=outputs, training=is_training)
-            # Activation-4
             outputs = tf.nn.relu(outputs)
 
             # Deconv-5
@@ -240,6 +227,9 @@ class DCGAN(object):
             # Activation-3
             outputs = tf.nn.leaky_relu(outputs)
 
+            # Flatten
+            outputs = tf.layers.flatten(outputs)
+
             # FC-4
             logits = tf.layers.dense(inputs=outputs, units=1)
 
@@ -275,8 +265,14 @@ class DCGAN(object):
                 loss_d_fake = tf.losses.sigmoid_cross_entropy(
                     tf.zeros_like(dis_fake), dis_fake)
                 loss_d = (loss_d_real + loss_d_fake) / 2
+
             with tf.name_scope("gen_loss"):
-                loss_g = -tf.log(tf.clip_by_value(dis_fake, 1e-10, 1.0))
+                
+                
+                loss_g = tf.losses.sigmoid_cross_entropy(
+                    tf.ones_like(dis_fake), dis_fake)
+                
+                # loss_g = tf.reduce_mean(tf.nn.softplus(-dis_fake))
 
         return loss_d, loss_g
 
@@ -314,12 +310,14 @@ class DCGAN(object):
                     learning_rate=0.0002, beta1=0.5).minimize(
                         loss_d, var_list=vars_d)
                 g_optim = tf.train.AdamOptimizer(
-                    learning_rate=0.0002, beta1=0.5).minimize(
+                    learning_rate=0.01, beta1=0.5).minimize(
                         loss_g, var_list=vars_g)
+
                 with tf.control_dependencies([g_optim, d_optim]):
                     train_op = tf.no_op(name='train')
 
         return train_op
+        # return d_optim, g_optim
 
 
 if __name__ == "__main__":
