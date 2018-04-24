@@ -12,7 +12,7 @@ if __name__ == "__main__":
     np.random.seed(20170311)
     # import mnist data
     (image, _), _ = tf.keras.datasets.mnist.load_data()
-    image = image.reshape(-1, 28 ,28, 1)
+    image = image.reshape(-1, 28, 28, 1)
 
     # デレクトリの初期化
     path = "dcgan_logs"
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         # training
         for i in range(n_batches):
             noise = np.random.uniform(-1, 1, (batch_size, 100))
-            
+            batch_xs = image[i: i+batch_size]
 
             # train dcgan
             dcgan.sess.run(
