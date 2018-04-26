@@ -206,8 +206,10 @@ class DCGAN(object):
                 bias_initializer=init,
                 name="conv2")
             # BN-2
+            """
             outputs = tf.layers.batch_normalization(
                 inputs=outputs, training=is_training)
+            """
             # Activation-2
             outputs = tf.nn.leaky_relu(outputs)
 
@@ -222,8 +224,10 @@ class DCGAN(object):
                 bias_initializer=init,
                 name="conv3")
             # BN-3
+            """
             outputs = tf.layers.batch_normalization(
                 inputs=outputs, training=is_training)
+            """
             # Activation-3
             outputs = tf.nn.leaky_relu(outputs)
 

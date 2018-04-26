@@ -1,5 +1,6 @@
 from dcgan import DCGAN
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def combine_images(generated_images):
@@ -18,11 +19,26 @@ def combine_images(generated_images):
     return combined_image
 
 
+def plot_images(dcgan, path, epoch):
+    np.random.seed(1)
+    noise = np.random.uniform(-1, 1, (5 * 5, 100))
+    generated_image = dcgan.fake_image.eval(
+        session=dcgan.sess,
+        feed_dict={
+            dcgan.noise: noise,
+            dcgan.is_training: False
+        })
+    np.random.seed()
+    generated_image = generated_image * 127.5 + 127.5
+    image = combine_images(generated_image)
+    plt.imshow(image, cmap=plt.cm.gray)
+    plt.savefig(str(path / "epoch:{}.png".format(epoch + 1)))
+
+
 if __name__ == "__main__":
     import pathlib
     import tensorflow as tf
     from sklearn.utils import shuffle
-    import matplotlib.pyplot as plt
 
     # import matplotlib as mpl
     # mpl.use('Agg')  # sshのために
@@ -52,7 +68,7 @@ if __name__ == "__main__":
     path = "image"
     abs_path2 = pathlib.Path(path).resolve()
     if abs_path2.exists():
-        pass    
+        pass
     else:
         abs_path2.mkdir()
 
@@ -100,18 +116,7 @@ if __name__ == "__main__":
 
         # draw image
         # np.random.seed(1)
-        noise = np.random.uniform(-1, 1, (5*5, 100))
-        # np.random.seed(None)
-        generated_image = dcgan.fake_image.eval(
-            session=dcgan.sess,
-            feed_dict={
-                dcgan.noise: noise,
-                dcgan.is_training: False
-            })
-        generated_image = generated_image * 127.5 + 127.5
-        image = combine_images(generated_image)
-        plt.imshow(image, cmap=plt.cm.gray)
-        plt.savefig(str(abs_path2 / "epoch:{}.png".format(epoch+1)))
+        plot_images(dcgan, abs_path2, epoch)
         # write summary
         dcgan.writer.add_summary(summary, global_step=epoch)
 
