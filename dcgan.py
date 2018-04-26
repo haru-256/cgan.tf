@@ -93,14 +93,16 @@ class DCGAN(object):
         # define initializer
         # mean=0.0, stddev=1.0
         init = tf.initializers.truncated_normal(seed=20170311, stddev=wscale)
+        # weight decay
+        regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
 
         with tf.variable_scope("generator", reuse=None):
             # FC-1
             outputs = tf.layers.dense(
                 inputs=inputs,
-                units=bottom_width * bottom_width * ch,
+                units=1024,
                 kernel_initializer=init,
-                bias_initializer=init,
+                kernel_regularizer=regularizer,
                 name="dense1")
             # BN-1
             outputs = tf.layers.batch_normalization(
@@ -113,7 +115,7 @@ class DCGAN(object):
                 inputs=outputs,
                 units=bottom_width * bottom_width * ch,
                 kernel_initializer=init,
-                bias_initializer=init,
+                kernel_regularizer=regularizer,
                 name="dence2")
             # BN-2
             outputs = tf.layers.batch_normalization(
@@ -132,8 +134,8 @@ class DCGAN(object):
                 strides=2,
                 padding="same",
                 kernel_initializer=init,
-                bias_initializer=init,
-                name="deconv3")
+                kernel_regularizer=regularizer,
+                name="deconv3")  # (14, 14)
             # BN-3
             outputs = tf.layers.batch_normalization(
                 inputs=outputs, training=is_training)
@@ -149,8 +151,8 @@ class DCGAN(object):
                 padding="same",
                 activation=tf.nn.tanh,
                 kernel_initializer=init,
-                bias_initializer=init,
-                name="deconv5")
+                kernel_regularizer=regularizer,
+                name="deconv5")  # (28, 28)
 
         return fake_image
 
@@ -182,6 +184,8 @@ class DCGAN(object):
             # mean=0.0, stddev=1.0
             init = tf.initializers.truncated_normal(
                 seed=20170311, stddev=wscale)
+            # weight decay
+            regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
 
             # C-1
             outputs = tf.layers.conv2d(
@@ -192,7 +196,7 @@ class DCGAN(object):
                 padding="same",
                 activation=tf.nn.leaky_relu,
                 kernel_initializer=init,
-                bias_initializer=init,
+                kernel_regularizer=regularizer,
                 name="conv1")
 
             # C-2
@@ -203,13 +207,11 @@ class DCGAN(object):
                 strides=2,
                 padding="same",
                 kernel_initializer=init,
-                bias_initializer=init,
+                kernel_regularizer=regularizer,
                 name="conv2")
             # BN-2
-            """
             outputs = tf.layers.batch_normalization(
-                inputs=outputs, training=is_training)
-            """
+                inputs=outputs, training=is_training, scale=False)
             # Activation-2
             outputs = tf.nn.leaky_relu(outputs)
 
@@ -221,13 +223,11 @@ class DCGAN(object):
                 strides=1,
                 padding="same",
                 kernel_initializer=init,
-                bias_initializer=init,
+                kernel_regularizer=regularizer,
                 name="conv3")
             # BN-3
-            """
             outputs = tf.layers.batch_normalization(
-                inputs=outputs, training=is_training)
-            """
+                inputs=outputs, training=is_training, scale=False)
             # Activation-3
             outputs = tf.nn.leaky_relu(outputs)
 
@@ -235,7 +235,11 @@ class DCGAN(object):
             outputs = tf.layers.flatten(outputs)
 
             # FC-4
-            logits = tf.layers.dense(inputs=outputs, units=1)
+            logits = tf.layers.dense(
+                inputs=outputs,
+                units=1,
+                kernel_initializer=init,
+                kernel_regularizer=regularizer)
 
         return logits
 
@@ -264,18 +268,23 @@ class DCGAN(object):
         # define loss function
         with tf.name_scope("losses"):
             with tf.name_scope("dis_loss"):
+                weight_decay = tf.get_collection(
+                    tf.GraphKeys.REGULARIZATION_LOSSES,
+                    scope='model/discriminator')
                 loss_d_real = tf.losses.sigmoid_cross_entropy(
                     tf.ones_like(dis_real), dis_real)
                 loss_d_fake = tf.losses.sigmoid_cross_entropy(
                     tf.zeros_like(dis_fake), dis_fake)
-                loss_d = (loss_d_real + loss_d_fake) / 2
+                loss_d = (loss_d_real + loss_d_fake) / 2 + weight_decay
 
             with tf.name_scope("gen_loss"):
-                
-                
+                weight_decay = tf.get_collection(
+                    tf.GraphKeys.REGULARIZATION_LOSSES,
+                    scope='model/generator')
                 loss_g = tf.losses.sigmoid_cross_entropy(
                     tf.ones_like(dis_fake), dis_fake)
-                
+                loss_g = loss_g + weight_decay
+
                 # loss_g = tf.reduce_mean(tf.nn.softplus(-dis_fake))
 
         return loss_d, loss_g
