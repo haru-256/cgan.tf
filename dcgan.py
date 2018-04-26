@@ -1,4 +1,5 @@
 import tensorflow as tf
+import numpy as np
 
 
 class DCGAN(object):
@@ -25,20 +26,26 @@ class DCGAN(object):
                         tf.float32, [None, 100], name="z")
                     self.image = tf.placeholder(
                         tf.float32, [None, 28, 28, 1], name="x")
+                    self.labels = tf.placeholder(tf.float32, shape=[None, 10])
                     self.is_training = tf.placeholder(
                         tf.bool, [], name="is_training")
                 # generate fake image
                 self.fake_image = self._generator(
                     self.noise,
                     self.is_training,
+                    self.labels,
                     bottom_width=bottom_width,
                     ch=ch,
                     wscale=wscale)
                 # define real loss and fake loss
                 d_real = self._discriminator(self.image, self.is_training,
-                                             wscale)
+                                             self.labels, wscale)
                 d_fake = self._discriminator(
-                    self.fake_image, self.is_training, wscale, reuse=True)
+                    self.fake_image,
+                    self.is_training,
+                    self.labels,
+                    wscale,
+                    reuse=True)
 
             # define generator loss and discriminator loss respectively
             self.loss_d, self.loss_g = self.losses(d_real, d_fake)
@@ -62,7 +69,26 @@ class DCGAN(object):
             self.writer = tf.summary.FileWriter(
                 str(path), graph=self.sess.graph)
 
-    def _generator(self, inputs, is_training, wscale, bottom_width, ch):
+    def dis_one_hot(self, labels):
+        """make one-hot vector
+
+        Parametors
+        -----------------
+        labels: placeholder(tf.int32)
+            label data (one hot vector)
+
+        Return
+        ----------------
+        one hot vector for discriminator.
+        shape is (N, 28, 28, C)
+        """
+        one_hot_labels = tf.reshape(labels, [-1, 10, 1, 1])
+        mask = tf.ones((one_hot_labels.shape[0], 10, 28, 28))
+
+        return tf.mul(mask, one_hot_labels)
+
+    def _generator(self, inputs, is_training, labels, wscale, bottom_width,
+                   ch):
         """build generator
 
         Parameters
@@ -72,6 +98,9 @@ class DCGAN(object):
 
         is_training: placeholder(shape=(1), tf.bool)
             training flag.
+
+        labels: placeholder(shape=(n_batch, n_class), tf.float32)
+           label data(one hot vector)
 
         wscale: float
             initializer's stddev
@@ -97,9 +126,11 @@ class DCGAN(object):
         regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
 
         with tf.variable_scope("generator", reuse=None):
+            # concat
+            outputs = tf.concat([inputs, labels], axis=1)
             # FC-1
             outputs = tf.layers.dense(
-                inputs=inputs,
+                inputs=outputs,
                 units=1024,
                 kernel_initializer=init,
                 kernel_regularizer=regularizer,
@@ -172,7 +203,7 @@ class DCGAN(object):
 
         return fake_image
 
-    def _discriminator(self, inputs, is_training, wscale, reuse=None):
+    def _discriminator(self, inputs, is_training, labels, wscale, reuse=None):
         """build discriminator
 
         Parameters
@@ -182,6 +213,9 @@ class DCGAN(object):
 
         is_training: placeholder(shape=(1), tf.bool)
             training flag.
+        
+        labels: placeholder(shape=(n_batch, 10))
+            labels data (one hot vector)
 
         wscale: float
             initializer's stddev
@@ -202,10 +236,14 @@ class DCGAN(object):
                 seed=20170311, stddev=wscale)
             # weight decay
             regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
-
+            # one_hot
+            dis_labels = self.dis_one_hot(labels)
+            # concat
+            outputs = tf.concat([inputs, dis_labels], axis=-1)
+            print(outputs.shape)
             # C-1
             outputs = tf.layers.conv2d(
-                inputs=inputs,
+                inputs=outputs,
                 filters=64,
                 kernel_size=5,
                 strides=2,

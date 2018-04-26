@@ -1,5 +1,4 @@
 from dcgan import DCGAN
-import numpy as np
 import matplotlib.pyplot as plt
 
 
@@ -39,6 +38,8 @@ if __name__ == "__main__":
     import pathlib
     import tensorflow as tf
     from sklearn.utils import shuffle
+    from sklearn.preprocessing import OneHotEncoder
+    import numpy as np
 
     # import matplotlib as mpl
     # mpl.use('Agg')  # sshのために
@@ -46,13 +47,14 @@ if __name__ == "__main__":
     # mnist.train.next_batch に置いて中でnumpyのseedを使っているので...
     # np.random.seed(20170311)
     # import mnist data
-    (train_image, _), (test_image, _) = tf.keras.datasets.mnist.load_data()
+    (train_image, labels), _ = tf.keras.datasets.mnist.load_data()
     train_image = train_image.reshape(-1, 28, 28, 1)
     train_image = (train_image - 127.5) / 127.5
 
-    test_image = test_image.reshape(-1, 28, 28, 1)
-    test_image = (test_image - 127.5) / 127.5
-    test_image = test_image[:100]
+    # one_hot
+    labels = labels.reshape(-1, 1)
+    encoder = OneHotEncoder()
+    one_hot = encoder.fit_transform(labels).toarray()
 
     # デレクトリの初期化
     path = "dcgan_logs"
@@ -89,33 +91,35 @@ if __name__ == "__main__":
 
     # training
     for epoch in range(epochs):
-        train_image = shuffle(train_image)
+        train_image, one_hot = shuffle(train_image, one_hot)
 
         for i in range(n_batches):
             noise = np.random.uniform(-1, 1, (batch_size, 100))
-            batch_xs = train_image[i:i + batch_size]
+            batch_image = train_image[i:i + batch_size]
+            batch_label = one_hot[i:i+batch_size]
             # train dcgan
             dcgan.sess.run(
                 dcgan.train_op,
                 feed_dict={
                     dcgan.noise: noise,
-                    dcgan.image: batch_xs,
+                    dcgan.image: batch_image,
+                    dcgan.labels: batch_label,
                     dcgan.is_training: True
                 })
 
         # report loss
-        noise = np.random.uniform(-1, 1, (len(test_image), 100))
+        noise = np.random.uniform(-1, 1, (len(train_image[:100]), 100))
         dis_loss, gen_loss, summary = \
             dcgan.sess.run([dcgan.loss_d, dcgan.loss_g, dcgan.summary],
                            feed_dict={
                                dcgan.noise: noise,
-                               dcgan.image: test_image,
+                               dcgan.image: batch_image,
+                               dcgan.labels: batch_label,
                                dcgan.is_training: False})
         print("epoch:{0:2d}  DLoss:{1:.5f} GLoss:{2:.5f}".format(
             epoch + 1, dis_loss, gen_loss))
 
         # draw image
-        # np.random.seed(1)
         plot_images(dcgan, abs_path2, epoch)
         # write summary
         dcgan.writer.add_summary(summary, global_step=epoch)
