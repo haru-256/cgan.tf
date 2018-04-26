@@ -15,6 +15,7 @@ class DCGAN(object):
                  n_hidden=100,
                  bottom_width=4,
                  ch=128,
+                 num_data=128,
                  wscale=0.02,
                  path=None):
 
@@ -39,11 +40,12 @@ class DCGAN(object):
                     wscale=wscale)
                 # define real loss and fake loss
                 d_real = self._discriminator(self.image, self.is_training,
-                                             self.labels, wscale)
+                                             self.labels, num_data, wscale)
                 d_fake = self._discriminator(
                     self.fake_image,
                     self.is_training,
                     self.labels,
+                    num_data,
                     wscale,
                     reuse=True)
 
@@ -69,7 +71,7 @@ class DCGAN(object):
             self.writer = tf.summary.FileWriter(
                 str(path), graph=self.sess.graph)
 
-    def dis_one_hot(self, labels):
+    def dis_one_hot(self, labels, num_data):
         """make one-hot vector
 
         Parametors
@@ -77,15 +79,18 @@ class DCGAN(object):
         labels: placeholder(tf.int32)
             label data (one hot vector)
 
+        num_data: int32
+            number of datas
+
         Return
         ----------------
         one hot vector for discriminator.
         shape is (N, 28, 28, C)
         """
-        one_hot_labels = tf.reshape(labels, [-1, 10, 1, 1])
-        mask = tf.ones((one_hot_labels.shape[0], 10, 28, 28))
+        one_hot_labels = tf.reshape(labels, [-1, 1, 1, 10])
+        mask = tf.ones((num_data, 28, 28, 10))
 
-        return tf.mul(mask, one_hot_labels)
+        return tf.multiply(mask, one_hot_labels)
 
     def _generator(self, inputs, is_training, labels, wscale, bottom_width,
                    ch):
@@ -120,8 +125,8 @@ class DCGAN(object):
         """
 
         # define initializer
-        # mean=0.0, stddev=1.0
-        init = tf.initializers.truncated_normal(seed=20170311, stddev=wscale)
+        # mean=0.0, stddev=wscale
+        init = tf.initializers.random_normal(stddev=wscale)
         # weight decay
         regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
 
@@ -203,7 +208,13 @@ class DCGAN(object):
 
         return fake_image
 
-    def _discriminator(self, inputs, is_training, labels, wscale, reuse=None):
+    def _discriminator(self,
+                       inputs,
+                       is_training,
+                       labels,
+                       num_data,
+                       wscale,
+                       reuse=None):
         """build discriminator
 
         Parameters
@@ -216,6 +227,8 @@ class DCGAN(object):
         
         labels: placeholder(shape=(n_batch, 10))
             labels data (one hot vector)
+
+        num_data
 
         wscale: float
             initializer's stddev
@@ -231,16 +244,14 @@ class DCGAN(object):
 
         with tf.variable_scope("discriminator", reuse=reuse):
             # define initializer
-            # mean=0.0, stddev=1.0
-            init = tf.initializers.truncated_normal(
-                seed=20170311, stddev=wscale)
+            # mean=0.0, stddev=wscale
+            init = tf.initializers.random_normal(stddev=wscale)
             # weight decay
             regularizer = tf.contrib.layers.l2_regularizer(scale=0.0001)
             # one_hot
-            dis_labels = self.dis_one_hot(labels)
+            dis_labels = self.dis_one_hot(labels, num_data)
             # concat
             outputs = tf.concat([inputs, dis_labels], axis=-1)
-            print(outputs.shape)
             # C-1
             outputs = tf.layers.conv2d(
                 inputs=outputs,
@@ -386,7 +397,7 @@ class DCGAN(object):
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
                 d_optim = tf.train.AdamOptimizer(
-                    learning_rate=0.0002, beta1=0.5).minimize(
+                    learning_rate=0.0001, beta1=0.5).minimize(
                         loss_d, var_list=vars_d)
                 g_optim = tf.train.AdamOptimizer(
                     learning_rate=0.0002, beta1=0.5).minimize(
