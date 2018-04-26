@@ -12,7 +12,7 @@ class DCGAN(object):
 
     def __init__(self,
                  n_hidden=100,
-                 bottom_width=7,
+                 bottom_width=4,
                  ch=128,
                  wscale=0.02,
                  path=None):
@@ -130,16 +130,32 @@ class DCGAN(object):
             outputs = tf.layers.conv2d_transpose(
                 inputs=outputs,
                 filters=ch // 2,
+                kernel_size=4,
+                strides=1,
+                padding="valid",
+                kernel_initializer=init,
+                kernel_regularizer=regularizer,
+                name="deconv3")  # (7, 7)
+            # BN-3
+            outputs = tf.layers.batch_normalization(
+                inputs=outputs, training=is_training)
+            # Activation-3
+            outputs = tf.nn.relu(outputs)
+
+            # Deconv-4
+            outputs = tf.layers.conv2d_transpose(
+                inputs=outputs,
+                filters=ch // 4,
                 kernel_size=3,
                 strides=2,
                 padding="same",
                 kernel_initializer=init,
                 kernel_regularizer=regularizer,
-                name="deconv3")  # (14, 14)
-            # BN-3
+                name="deconv4")  # (14, 14)
+            # BN-4
             outputs = tf.layers.batch_normalization(
                 inputs=outputs, training=is_training)
-            # Activation-3
+            # Activation-4
             outputs = tf.nn.relu(outputs)
 
             # Deconv-5
@@ -335,7 +351,7 @@ class DCGAN(object):
                     learning_rate=0.0002, beta1=0.5).minimize(
                         loss_d, var_list=vars_d)
                 g_optim = tf.train.AdamOptimizer(
-                    learning_rate=0.01, beta1=0.5).minimize(
+                    learning_rate=0.0002, beta1=0.5).minimize(
                         loss_g, var_list=vars_g)
 
                 with tf.control_dependencies([g_optim, d_optim]):
