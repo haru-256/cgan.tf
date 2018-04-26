@@ -268,24 +268,36 @@ class DCGAN(object):
         # define loss function
         with tf.name_scope("losses"):
             with tf.name_scope("dis_loss"):
-                weight_decay = tf.get_collection(
-                    tf.GraphKeys.REGULARIZATION_LOSSES,
-                    scope='model/discriminator')
+                with tf.name_scope("weight_decay"):
+                    reg_collection = tf.get_collection(
+                        tf.GraphKeys.REGULARIZATION_LOSSES,
+                        scope='model/discriminator')
+                    weight_decay = tf.reduce_sum(reg_collection)
+                """
                 loss_d_real = tf.losses.sigmoid_cross_entropy(
                     tf.ones_like(dis_real), dis_real)
                 loss_d_fake = tf.losses.sigmoid_cross_entropy(
                     tf.zeros_like(dis_fake), dis_fake)
+                """
+                loss_d_real = tf.reduce_mean(tf.nn.softplus(-dis_real))
+                loss_d_fake = tf.reduce_mean(tf.nn.softplus(dis_fake))
+
                 loss_d = (loss_d_real + loss_d_fake) / 2 + weight_decay
 
             with tf.name_scope("gen_loss"):
-                weight_decay = tf.get_collection(
-                    tf.GraphKeys.REGULARIZATION_LOSSES,
-                    scope='model/generator')
+                with tf.name_scope("weight_decay"):
+                    reg_collection = tf.get_collection(
+                        tf.GraphKeys.REGULARIZATION_LOSSES,
+                        scope='model/generator')
+                    weight_decay = tf.reduce_sum(reg_collection)
+
+                loss_g = tf.reduce_mean(tf.nn.softplus(-dis_fake))
+                """
                 loss_g = tf.losses.sigmoid_cross_entropy(
                     tf.ones_like(dis_fake), dis_fake)
-                loss_g = loss_g + weight_decay
+                """
 
-                # loss_g = tf.reduce_mean(tf.nn.softplus(-dis_fake))
+                loss_g = loss_g + weight_decay
 
         return loss_d, loss_g
 
