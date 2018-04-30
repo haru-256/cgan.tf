@@ -18,13 +18,18 @@ def combine_images(generated_images):
     return combined_image
 
 
-def plot_images(dcgan, path, epoch):
+def plot_images(dcgan, path, epoch, encoder):
     np.random.seed(1)
-    noise = np.random.uniform(-1, 1, (5 * 5, 100))
+    noise = np.random.uniform(-1, 1, (10 * 10, 100))
+    labels = np.repeat(np.array([i for i in range(10)]), 10)
+    labels = labels.reshape(-1, 1)
+    one_hot = encoder.transform(labels).toarray()
+
     generated_image = dcgan.fake_image.eval(
         session=dcgan.sess,
         feed_dict={
             dcgan.noise: noise,
+            dcgan.labels: one_hot,
             dcgan.is_training: False
         })
     np.random.seed()
@@ -80,7 +85,7 @@ if __name__ == "__main__":
     epochs = 100  # number of epochs
 
     # build mlp
-    dcgan = DCGAN(path=abs_path)
+    dcgan = DCGAN(num_data=batch_size, path=abs_path)
 
     # earlystopping
     # early_stopping = EarlyStopping(patience=10, verbose=1)
@@ -96,7 +101,7 @@ if __name__ == "__main__":
         for i in range(n_batches):
             noise = np.random.uniform(-1, 1, (batch_size, 100))
             batch_image = train_image[i:i + batch_size]
-            batch_label = one_hot[i:i+batch_size]
+            batch_label = one_hot[i:i + batch_size]
             # train dcgan
             dcgan.sess.run(
                 dcgan.train_op,
@@ -108,7 +113,7 @@ if __name__ == "__main__":
                 })
 
         # report loss
-        noise = np.random.uniform(-1, 1, (len(train_image[:100]), 100))
+        noise = np.random.uniform(-1, 1, (len(train_image[:batch_size]), 100))
         dis_loss, gen_loss, summary = \
             dcgan.sess.run([dcgan.loss_d, dcgan.loss_g, dcgan.summary],
                            feed_dict={
@@ -120,7 +125,7 @@ if __name__ == "__main__":
             epoch + 1, dis_loss, gen_loss))
 
         # draw image
-        plot_images(dcgan, abs_path2, epoch)
+        plot_images(dcgan, abs_path2, epoch, encoder)
         # write summary
         dcgan.writer.add_summary(summary, global_step=epoch)
 
